@@ -185,6 +185,7 @@ public extension Conversation {
 	/// > Warning: Make sure to handle the case where the user denies microphone access.
 	@MainActor func startListening() throws {
 		guard !isListening else { return }
+    
 		if !handlingVoice { try startHandlingVoice() }
 
 		Task.detached { [audioEngine] in
@@ -208,7 +209,7 @@ public extension Conversation {
 	/// Handle the playback of audio responses from the model.
 	@MainActor func startHandlingVoice() throws {
 		guard !handlingVoice else { return }
-
+    
 #if os(iOS)
 		// 1️⃣ Configure and activate the session first
 		let audioSession = AVAudioSession.sharedInstance()
@@ -217,9 +218,6 @@ public extension Conversation {
 		                             options: [.defaultToSpeaker, .allowBluetooth])
 		try audioSession.setPreferredSampleRate(48_000)   // optional but typical
 		try audioSession.setActive(true)
-		
-		// Enable voice processing BEFORE starting the audio engine
-		try audioEngine.inputNode.setVoiceProcessingEnabled(true)
 #endif
 
 		// 2️⃣ Now the format has a real sample-rate
@@ -238,9 +236,7 @@ public extension Conversation {
 			try audioEngine.start()
 
 			handlingVoice = true
-//			
-//			// Setup proximity sensor monitoring after successful start
-//			setupProximitySensorMonitoring()
+			
 		} catch {
 			print("Failed to enable audio engine: \(error)")
 
@@ -283,47 +279,9 @@ public extension Conversation {
 
 		Self.cleanUpAudio(playerNode: playerNode, audioEngine: audioEngine)
 
-//#if os(iOS)
-//		// Disable proximity monitoring and clean up notifications
-//		UIDevice.current.isProximityMonitoringEnabled = false
-//		NotificationCenter.default.removeObserver(self, name: UIDevice.proximityStateDidChangeNotification, object: nil)
-//#endif
-
 		isListening = false
 		handlingVoice = false
 	}
-//
-//	/// Set audio output to speaker or earpiece.
-//	/// - Parameter useSpeaker: true for speaker output, false for earpiece (better for echo cancellation)
-//	@MainActor func setSpeakerOutput(_ useSpeaker: Bool) throws {
-//#if os(iOS)
-//		let audioSession = AVAudioSession.sharedInstance()
-//		
-//		if useSpeaker {
-//			// Use speaker when explicitly requested
-//			try audioSession.overrideOutputAudioPort(.speaker)
-//		} else {
-//			// Default to earpiece for better echo cancellation
-//			try audioSession.overrideOutputAudioPort(.none)
-//		}
-//#endif
-//	}
-//
-//	/// Setup proximity sensor monitoring for automatic speaker/earpiece switching
-//	@MainActor private func setupProximitySensorMonitoring() {
-//#if os(iOS)
-//		UIDevice.current.isProximityMonitoringEnabled = true
-//		
-//		NotificationCenter.default.addObserver(
-//			forName: UIDevice.proximityStateDidChangeNotification,
-//			object: nil,
-//			queue: .main
-//		) { [weak self] _ in
-//			let nearEar = UIDevice.current.proximityState
-//			try? self?.setSpeakerOutput(!nearEar) // Use earpiece when near ear, speaker when away
-//		}
-//#endif
-//	}
 
 	/// Stop playing audio responses from the model and listening to the user's microphone.
 	static func cleanUpAudio(playerNode: AVAudioPlayerNode, audioEngine: AVAudioEngine) {
